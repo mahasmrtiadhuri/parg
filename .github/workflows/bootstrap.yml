@@ -1,5 +1,7 @@
 name: Validate packaged workspace
-on: [push]
+on:
+  push:
+    paths: [parg-source.tar.gz, .github/workflows/bootstrap.yml]
 permissions:
   contents: read
 jobs:
@@ -13,7 +15,7 @@ jobs:
           POSTGRES_PASSWORD: ci-disposable-password
           POSTGRES_DB: parg_test
         ports: ['5432:5432']
-        options: --health-cmd 'pg_isready -U parg -d parg_test' --health-interval 5s --health-timeout 5s --health-retries 12
+        options: --health-cmd "pg_isready -U parg -d parg_test" --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       PARG_TEST_DATABASE_URL: postgres://parg:ci-disposable-password@localhost:5432/parg_test
     steps:
