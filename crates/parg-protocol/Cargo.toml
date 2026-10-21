@@ -1,0 +1,12 @@
+[package]
+name = "parg-protocol"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+sha2.workspace = true
+blake3.workspace = true
+hex.workspace = true
+ed25519-dalek.workspace = true
