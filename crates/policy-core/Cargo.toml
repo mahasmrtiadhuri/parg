@@ -1,0 +1,16 @@
+[package]
+name = "policy-core"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+parg-protocol.workspace = true
+axum.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+ed25519-dalek.workspace = true
+rand.workspace = true
+hex.workspace = true
+reqwest.workspace = true
+anyhow.workspace = true
+subtle.workspace = true
+uuid.workspace = true
