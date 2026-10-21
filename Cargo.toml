@@ -1,0 +1,26 @@
+[workspace]
+members = ["crates/parg-protocol", "crates/ledger-service", "crates/policy-core", "crates/adversarial-worker"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+
+[workspace.dependencies]
+parg-protocol = { path = "crates/parg-protocol" }
+ledger-service = { path = "crates/ledger-service" }
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["serde", "v4"] }
+sha2 = "0.10"
+blake3 = "1"
+hex = "0.4"
+ed25519-dalek = "2"
+rand = "0.8"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "json"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+anyhow = "1"
+subtle = "2"

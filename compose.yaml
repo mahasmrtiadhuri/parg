@@ -1,0 +1,70 @@
+x-worker-env: &worker-env
+  PARG_WORKER_TOKEN: ${PARG_WORKER_TOKEN:?Run python3 scripts/setup.py}
+  PARG_TARGET_ID: ${PARG_TARGET_ID}
+  PARG_PRINCIPAL_ID: ${PARG_PRINCIPAL_ID}
+  PARG_SOURCE_ID: ${PARG_SOURCE_ID}
+  PARG_DEST_ID: ${PARG_DEST_ID}
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: parg
+      POSTGRES_DB: parg
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run python3 scripts/setup.py}
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U parg -d parg]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [authority]
+  keygen:
+    build: .
+    command: [policy-core, keygen, /keys/policy.seed, /public/keyring.json]
+    volumes: [policy-keys:/keys, public-keyring:/public]
+    networks: [authority]
+  ledger:
+    build: .
+    environment:
+      <<: *worker-env
+      PARG_CORE_TOKEN: ${PARG_CORE_TOKEN}
+      PARG_DATABASE_URL: postgres://parg:${POSTGRES_PASSWORD}@postgres:5432/parg
+      PARG_KEYRING: /public/keyring.json
+      PARG_DEMO_SEED: '1'
+      PARG_BIND: 0.0.0.0:8080
+    volumes: [public-keyring:/public:ro]
+    ports: ['127.0.0.1:8080:8080']
+    depends_on:
+      postgres: {condition: service_healthy}
+      keygen: {condition: service_completed_successfully}
+    networks: [worker, authority]
+  policy:
+    build: .
+    command: [policy-core]
+    environment:
+      <<: *worker-env
+      PARG_CORE_TOKEN: ${PARG_CORE_TOKEN}
+      PARG_SIGNING_KEY: /keys/policy.seed
+      PARG_POLICY_BIND: 0.0.0.0:8081
+      PARG_LEDGER_URL: http://ledger:8080
+    volumes: [policy-keys:/keys:ro]
+    depends_on:
+      ledger: {condition: service_started}
+    networks: [worker, authority]
+  demo:
+    build: .
+    command: [adversarial-worker]
+    environment:
+      <<: *worker-env
+      PARG_LEDGER_URL: http://ledger:8080
+      PARG_POLICY_URL: http://policy:8081
+    depends_on: [ledger, policy]
+    networks: [worker]
+volumes:
+  postgres-data:
+  policy-keys:
+  public-keyring:
+networks:
+  worker:
+  authority:
+    internal: true
