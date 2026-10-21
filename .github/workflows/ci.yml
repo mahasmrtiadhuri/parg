@@ -1,0 +1,64 @@
+name: Verify PARG
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  protocol-and-ledger:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: parg
+          POSTGRES_PASSWORD: ci-disposable-password
+          POSTGRES_DB: parg_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U parg -d parg_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      PARG_TEST_DATABASE_URL: postgres://parg:ci-disposable-password@localhost:5432/parg_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace --all-targets
+      - run: cargo build --workspace
+      - name: HTTP adversarial demonstration
+        run: |
+          set -eu
+          mkdir -p .local
+          target/debug/policy-core keygen .local/policy.seed .local/keyring.json
+          export PARG_DATABASE_URL="$PARG_TEST_DATABASE_URL"
+          export PARG_WORKER_TOKEN="$(openssl rand -hex 32)"
+          export PARG_CORE_TOKEN="$(openssl rand -hex 32)"
+          export PARG_TARGET_ID=33333333-3333-4333-8333-333333333333
+          export PARG_PRINCIPAL_ID=11111111-1111-4111-8111-111111111111
+          export PARG_SOURCE_ID=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+          export PARG_DEST_ID=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
+          export PARG_KEYRING="$PWD/.local/keyring.json"
+          export PARG_SIGNING_KEY="$PWD/.local/policy.seed"
+          export PARG_LEDGER_URL=http://127.0.0.1:8080
+          export PARG_POLICY_URL=http://127.0.0.1:8081
+          export PARG_DEMO_SEED=1
+          target/debug/ledger-service > .local/ledger.log 2>&1 &
+          LEDGER_PID=$!
+          target/debug/policy-core > .local/policy.log 2>&1 &
+          POLICY_PID=$!
+          trap 'kill "$LEDGER_PID" "$POLICY_PID" || true' EXIT
+          target/debug/adversarial-worker
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run isolated local demo
+        run: |
+          python3 scripts/setup.py
+          docker compose up --build -d ledger policy
+          docker compose run --rm demo
+      - if: always()
+        run: docker compose down -v
